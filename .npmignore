@@ -1,0 +1,10 @@
+/node_modules/
+/coverage/
+/npm-debug.log
+/babel.config.js
+/.eslintrc.js
+/yarn-error.log
+
+/public/
+/src/
+/tsconfig.json

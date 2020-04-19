@@ -1,19 +1,37 @@
 import React, { useEffect, useState } from 'react'
 
-import Module, { PinLink } from './Module'
+import BPBaseModule, { BPCorePinLink } from './Module'
 
-type SVGCanvasProps = {
-  width: number
-  height: number
+interface SVGCanvasProps  {
+  width: number;
+  height: number;
 }
 
-type PinInfo = {
-  name: string,
-  mode: string,
-  parentId: string
+interface MockDataType {
+  modules: Array<{
+    id: string;
+    title: string;
+    position: {
+      x: number;
+      y: number;
+    },
+    leftPins: string[];
+    rightPins: string[];
+  }>,
+  pins: {
+    [x: string]: {
+      name: string;
+      mode: 'left' | 'right';
+      parentId: string;
+    }
+  },
+  links: Array<{
+    start: string;
+    end: string;
+  }>
 }
 
-const MOCK_DATA = {
+const MOCK_DATA: MockDataType = {
   modules: [
     {
       id: '001',
@@ -143,7 +161,7 @@ function SVGCanvas(props: SVGCanvasProps) {
 
   const renderModules = () => {
     return modules.map(item => (
-      <Module
+      <BPBaseModule
         id={item.id}
         key={item.id}
         title={item.title}
@@ -159,8 +177,8 @@ function SVGCanvas(props: SVGCanvasProps) {
 
   const renderPinLink = () => {
     return links.map(item => {
-      const startPin = (pins as any)[item.start] as PinInfo
-      const endPin = (pins as any)[item.end] as PinInfo
+      const startPin = pins[item.start]
+      const endPin = pins[item.end]
       const startModule = modules.find(m => m.id === startPin.parentId)
       const endModule = modules.find(m => m.id === endPin.parentId)
       const startIndex = startModule?.rightPins.findIndex(id => id === item.start) as number
@@ -171,7 +189,7 @@ function SVGCanvas(props: SVGCanvasProps) {
       const ex = endModule?.position.x as number + 8
       const ey = endModule?.position.y as number + 34 + (endIndex * 23)
 
-      return <PinLink
+      return <BPCorePinLink
         key={`${item.start} -> ${item.end}`}
         sx={sx}
         sy={sy}

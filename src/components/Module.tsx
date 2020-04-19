@@ -1,46 +1,40 @@
 import React from 'react'
 import Draggable, { DraggableEventHandler } from 'react-draggable'
 
-type Position = {
-  x: number,
-  y: number
+interface BPCorePosition {
+  x: number;
+  y: number;
 }
 
-
-type ModuleProps = {
-  id: string,
-  isDraggable?: boolean,
-  leftPins: string[],
-  rightPins: string[],
-  defaultPositon: Position,
-  title: string,
-  pins: any,
+interface BPBaseModuleProps {
+  id: string;
+  isDraggable?: boolean;
+  leftPins: string[];
+  rightPins: string[];
+  defaultPositon: BPCorePosition;
+  title: string;
+  pins: any;
   onDragModule: any
 }
 
-type PinProps = {
-  name?: string,
-  mode?: string,
-  x: number,
-  y: number
+interface BPBasePinProps extends BPCorePosition {
+  name?: string;
+  mode?: BPBasePinMode;
 }
 
-type PinLinkProps = {
-  sx: number,
-  sy: number,
-  ex: number,
-  ey: number
+interface BPBasePinLinkProps {
+  sx: number;
+  sy: number;
+  ex: number;
+  ey: number;
 }
 
-enum PinMode {
-  Left = 'Left',
-  Right = 'Right',
-}
+type BPBasePinMode = 'left' | 'right'
 
-const PIN_COLOR = '#CCC'
-const BG_STYPE = { fill: '#EEE', fillOpacity: 0.7 }
+const BP_CORE_PIN_COLOR = '#CCC'
+const BP_BASE_MODULE_BG_STYPE = { fill: '#EEE', fillOpacity: 0.7 }
 
-export function PinLink (props: PinLinkProps) {
+export function BPCorePinLink (props: BPBasePinLinkProps) {
   const { sx, sy, ex, ey } = props
   return (
     <path
@@ -48,46 +42,45 @@ export function PinLink (props: PinLinkProps) {
         M ${sx} ${sy}
         C ${sx + 50} ${sy}, ${ex - 50} ${ey}, ${ex} ${ey}
       `}
-      stroke={PIN_COLOR}
+      stroke={BP_CORE_PIN_COLOR}
       fill='transparent'
     />
   )
 }
 
-export function Pin (props: PinProps) {
-  const currMode = props.mode || PinMode.Left
+export function BPBasePin (props: BPBasePinProps) {
+  const currMode: BPBasePinMode = props.mode || 'left'
   switch (currMode) {
-    case PinMode.Right: {
+    case 'right': {
       return (
         <g>
-          <circle cx={200 - props.x} cy={props.y}  r={4} fill={PIN_COLOR}/>
+          <circle cx={200 - props.x} cy={props.y}  r={4} fill={BP_CORE_PIN_COLOR}/>
           <text x={200 - props.x - 8} y={props.y + 5} fill='#777' textAnchor='end'>{props.name || ''}</text>
         </g>
       )
     }
-    case PinMode.Left:
+    case 'left':
     default: {
       return (
         <g>
-          <circle cx={props.x} cy={props.y}  r={4} fill={PIN_COLOR}/>
+          <circle cx={props.x} cy={props.y}  r={4} fill={BP_CORE_PIN_COLOR}/>
           <text x={props.x + 8} y={props.y + 5} fill='#777'>{props.name || ''}</text>
         </g>
       )
     }
   }
-
 }
 
-function Module (props: ModuleProps) {
+function BPBaseModule (props: BPBaseModuleProps) {
   const currHeight = Math.max(props.leftPins.length, props.rightPins.length, 5) * 14 + 30
   const { pins } = props
 
   const renderLeftPins = () => props.leftPins.map((item, i) => (
-    <Pin x={10} y={34 + i * 22} name={pins[item].name} key={item}/>
+    <BPBasePin x={10} y={34 + i * 22} name={pins[item].name} key={item}/>
   ))
 
   const renderRightPins = () => props.rightPins.map((item, i) => (
-    <Pin x={10} y={34 + i * 22} name={pins[item].name} mode={PinMode.Right} key={item}/>
+    <BPBasePin x={10} y={34 + i * 22} name={pins[item].name} mode='right' key={item}/>
   ))
 
   const render = () => (
@@ -95,7 +88,7 @@ function Module (props: ModuleProps) {
       <rect
         x={0} y={0}
         height={currHeight} width={200}
-        style={BG_STYPE}
+        style={BP_BASE_MODULE_BG_STYPE}
       />
       <text x={6} y={20}>{props.title}</text>
       {renderLeftPins()}
@@ -113,11 +106,11 @@ function Module (props: ModuleProps) {
         defaultPosition={props.defaultPositon}
         onDrag={handleDarg}
       >
-          {render()}
-        </Draggable>
+        {render()}
+      </Draggable>
     )
   }
   return render()
 }
 
-export default Module
+export default BPBaseModule
