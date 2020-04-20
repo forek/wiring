@@ -1,150 +1,133 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useReducer, useMemo } from 'react'
+import WiringBaseModule, { WiringCorePinLink, WiringCorePosition, DraggableDataWithWiringId } from './Module'
+import { MOCK_DATA } from './MockData'
 
-import BPBaseModule, { BPCorePinLink } from './Module'
+export declare namespace WiringCore {
+  type PinId = string;
+  type ModuleId = string;
+  type ModuleType = string;
 
-interface SVGCanvasProps  {
+  export interface Pin {
+    id: PinId;
+    text?: string;
+  }
+
+  export interface Module {
+    id: ModuleId;
+    title?: string;
+    type: ModuleType;
+    position: WiringCorePosition;
+    leftPins: Pin[];
+    rightPins: Pin[];
+  }
+
+  export interface Data {
+    modules: Module[]
+
+    links: Array<{
+      start: PinId;
+      end: PinId;
+    }>
+  }
+
+  interface IndexPin extends Pin {
+    parentRef: Module;
+    index: number;
+  }
+
+  export interface State {
+    modules: Data['modules'];
+    links: Data['links'];
+    modulesIndex: {
+      [id: string]: Module; // ModuleId
+    };
+    pinsIndex: {
+      [id: string]: IndexPin; // PinId
+    };
+  }
+
+  export namespace Actions {
+    interface Base {
+      type: ActionTypes;
+      payload?: {};
+    }
+
+    interface DragModulePayload extends WiringCorePosition {
+      id: ModuleId;
+    }
+
+    export interface DragModule extends Base {
+      type: ActionTypes.DRAG_MODULE;
+      payload: DragModulePayload;
+    }
+  }
+
+  export type Action = Actions.DragModule
+}
+
+function initPin (
+  pins: WiringCore.Pin[],
+  parentModule: WiringCore.Module,
+  pinsIndex: WiringCore.State['pinsIndex']
+): void {
+  pins.forEach((p, i) => {
+    pinsIndex[p.id] = {
+      ...p,
+      parentRef: parentModule,
+      index: i
+    }
+  })
+}
+
+function initState (data: WiringCore.Data): WiringCore.State {
+  const modulesIndex: WiringCore.State['modulesIndex'] = {}
+  const pinsIndex: WiringCore.State['pinsIndex'] = {}
+  const modules = data.modules.map(m => {
+    modulesIndex[m.id] = m
+    if (m.leftPins.length) initPin(m.leftPins, m, pinsIndex)
+    if (m.rightPins.length) initPin(m.rightPins, m, pinsIndex)
+    return m
+  })
+
+  return {
+    modules,
+    links: [...data.links],
+    modulesIndex,
+    pinsIndex
+  }
+}
+
+enum ActionTypes {
+  DRAG_MODULE,
+}
+
+function reducer (state: WiringCore.State, action: WiringCore.Action): WiringCore.State {
+  const nextState = { ...state }
+  switch (action.type) {
+    case ActionTypes.DRAG_MODULE: {
+      const { payload: { id, x, y } } = action as WiringCore.Actions.DragModule
+      nextState.modulesIndex[id].position = { x, y }
+      return nextState
+    }
+    default:
+      throw new Error()
+  }
+}
+
+interface SVGCanvasProps {
   width: number;
   height: number;
 }
 
-interface MockDataType {
-  modules: Array<{
-    id: string;
-    title: string;
-    position: {
-      x: number;
-      y: number;
-    },
-    leftPins: string[];
-    rightPins: string[];
-  }>,
-  pins: {
-    [x: string]: {
-      name: string;
-      mode: 'left' | 'right';
-      parentId: string;
-    }
-  },
-  links: Array<{
-    start: string;
-    end: string;
-  }>
-}
-
-const MOCK_DATA: MockDataType = {
-  modules: [
-    {
-      id: '001',
-      title: 'CallFuntion',
-      position: {
-        x: 20,
-        y: 100
-      },
-      leftPins: [
-        '001',
-        '005'
-      ],
-      rightPins: [
-        '002',
-        '008'
-      ]
-    },
-    {
-      id: '002',
-      title: 'Condition',
-      position: {
-        x: 300,
-        y: 200
-      },
-      leftPins: [
-        '003'
-      ],
-      rightPins: [
-        '004'
-      ]
-    },
-    {
-      id: '003',
-      title: 'CallFunction2',
-      position: {
-        x: 350,
-        y: 350
-      },
-      leftPins: [
-        '006'
-      ],
-      rightPins: [
-        '007'
-      ]
-    }
-  ],
-  pins: {
-    '001': {
-      name: 'left-pin',
-      mode: 'left',
-      parentId: '001'
-    },
-    '002': {
-      name: 'right-pin',
-      mode: 'right',
-      parentId: '001'
-    },
-    '003': {
-      name: 'left-pin',
-      mode: 'left',
-      parentId: '002'
-    },
-    '004': {
-      name: 'right-pin',
-      mode: 'right',
-      parentId: '002'
-    },
-    '005': {
-      name: 'left-pin2',
-      mode: 'left',
-      parentId: '001'
-    },
-    '006': {
-      name: 'hello',
-      mode: 'left',
-      parentId: '003'
-    },
-    '007': {
-      name: 'world',
-      mode: 'right',
-      parentId: '003'
-    },
-    '008': {
-      name: 'to hello',
-      mode: 'right',
-      parentId: '001'
-    }
-  },
-  links: [
-    {
-      start: '002',
-      end: '003'
-    },
-    {
-      start: '004',
-      end: '006'
-    },
-    {
-      start: '008',
-      end: '006'
-    }
-  ]
-}
-
-function SVGCanvas(props: SVGCanvasProps) {
-  const [modules, setModules] = useState(MOCK_DATA.modules)
-  const [pins, setPins] = useState(MOCK_DATA.pins)
-  const [links, setLinks] = useState(MOCK_DATA.links)
+function SVGCanvas (props: SVGCanvasProps) {
+  const initalState = useMemo(() => initState(MOCK_DATA), [MOCK_DATA])
+  const [state, dispatch] = useReducer(reducer, initalState)
+  const { modules, links, pinsIndex } = state
 
   const [viewBox, setViewBox] = useState<string | undefined>()
 
   const style = {
-    border: '1px solid black',
+    border: '1px solid black'
   }
 
   useEffect(() => {
@@ -152,23 +135,29 @@ function SVGCanvas(props: SVGCanvasProps) {
     setViewBox(viewBox.join(','))
   }, [])
 
-  const handleDragModule = (data: any) => {
-    const nextModules = [...modules] as any
-    // console.log(nextm)
-    nextModules.find((obj: any) => obj.id === data.id).position = { x: data.x, y: data.y }
-    setModules(nextModules)
+  const handleDragModule = (data: DraggableDataWithWiringId) => {
+    const action = {
+      type: ActionTypes.DRAG_MODULE,
+      payload: {
+        id: data.id,
+        x: data.x,
+        y: data.y
+      }
+    }
+
+    dispatch(action)
   }
 
   const renderModules = () => {
     return modules.map(item => (
-      <BPBaseModule
+      <WiringBaseModule
         id={item.id}
         key={item.id}
-        title={item.title}
+        title={item.title || ''}
         leftPins={item.leftPins}
         rightPins={item.rightPins}
         defaultPositon={item.position}
-        pins={pins}
+        pins={pinsIndex}
         onDragModule={handleDragModule}
         isDraggable
       />
@@ -177,32 +166,32 @@ function SVGCanvas(props: SVGCanvasProps) {
 
   const renderPinLink = () => {
     return links.map(item => {
-      const startPin = pins[item.start]
-      const endPin = pins[item.end]
-      const startModule = modules.find(m => m.id === startPin.parentId)
-      const endModule = modules.find(m => m.id === endPin.parentId)
-      const startIndex = startModule?.rightPins.findIndex(id => id === item.start) as number
-      const endIndex = endModule?.leftPins.findIndex(id => id === item.end) as number
+      const startPin = pinsIndex[item.start]
+      const endPin = pinsIndex[item.end]
+      const startModule = startPin.parentRef
+      const endModule = endPin.parentRef
 
-      const sx = startModule?.position.x as number + 200 - 8
-      const sy = startModule?.position.y as number + 34 + (startIndex * 23)
-      const ex = endModule?.position.x as number + 8
-      const ey = endModule?.position.y as number + 34 + (endIndex * 23)
+      const sx = startModule.position.x + 200 - 8
+      const sy = startModule.position.y + 34 + (startPin.index * 23)
+      const ex = endModule.position.x + 8
+      const ey = endModule.position.y + 34 + (endPin.index * 23)
 
-      return <BPCorePinLink
-        key={`${item.start} -> ${item.end}`}
-        sx={sx}
-        sy={sy}
-        ex={ex}
-        ey={ey}
-      />
+      return (
+        <WiringCorePinLink
+          key={`${item.start} -> ${item.end}`}
+          sx={sx}
+          sy={sy}
+          ex={ex}
+          ey={ey}
+        />
+      )
     })
   }
 
   return (
     <svg
-      id="SVGCanvas"
-      preserveAspectRatio="xMaxYMax none"
+      id='SVGCanvas'
+      preserveAspectRatio='xMaxYMax none'
       width={props.width}
       height={props.height}
       style={style}

@@ -1,13 +1,13 @@
-import React from 'react';
+import React from 'react'
 import SVGCanvas from './components/SVGCanvas'
-import './App.css';
+import './App.css'
 
-function App() {
+function App () {
   return (
-    <div className="App">
-      <SVGCanvas width={800} height={500}/>
+    <div className='App'>
+      <SVGCanvas width={800} height={500} />
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

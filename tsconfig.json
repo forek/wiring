@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
     "target": "es5",
+    "types": [
+      "react-draggable"
+    ],
     "lib": [
       "dom",
       "dom.iterable",

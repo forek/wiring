@@ -1,40 +1,30 @@
 import React from 'react'
-import Draggable, { DraggableEventHandler } from 'react-draggable'
+import Draggable, { DraggableEventHandler, DraggableData } from 'react-draggable'
+import { WiringCore } from './SVGCanvas'
 
-interface BPCorePosition {
+const WIRING_CORE_PIN_COLOR = '#CCC'
+const WIRING_BASE_MODULE_BG_STYPE = { fill: '#EEE', fillOpacity: 0.7 }
+
+export interface WiringCorePosition {
   x: number;
   y: number;
 }
 
-interface BPBaseModuleProps {
-  id: string;
-  isDraggable?: boolean;
-  leftPins: string[];
-  rightPins: string[];
-  defaultPositon: BPCorePosition;
-  title: string;
-  pins: any;
-  onDragModule: any
-}
+type WiringBasePinMode = 'left' | 'right'
 
-interface BPBasePinProps extends BPCorePosition {
+interface WiringBasePinProps extends WiringCorePosition {
   name?: string;
-  mode?: BPBasePinMode;
+  mode?: WiringBasePinMode;
 }
 
-interface BPBasePinLinkProps {
+interface WiringBasePinLinkProps {
   sx: number;
   sy: number;
   ex: number;
   ey: number;
 }
 
-type BPBasePinMode = 'left' | 'right'
-
-const BP_CORE_PIN_COLOR = '#CCC'
-const BP_BASE_MODULE_BG_STYPE = { fill: '#EEE', fillOpacity: 0.7 }
-
-export function BPCorePinLink (props: BPBasePinLinkProps) {
+export function WiringCorePinLink (props: WiringBasePinLinkProps) {
   const { sx, sy, ex, ey } = props
   return (
     <path
@@ -42,19 +32,19 @@ export function BPCorePinLink (props: BPBasePinLinkProps) {
         M ${sx} ${sy}
         C ${sx + 50} ${sy}, ${ex - 50} ${ey}, ${ex} ${ey}
       `}
-      stroke={BP_CORE_PIN_COLOR}
+      stroke={WIRING_CORE_PIN_COLOR}
       fill='transparent'
     />
   )
 }
 
-export function BPBasePin (props: BPBasePinProps) {
-  const currMode: BPBasePinMode = props.mode || 'left'
+export function WiringBasePin (props: WiringBasePinProps) {
+  const currMode: WiringBasePinMode = props.mode || 'left'
   switch (currMode) {
     case 'right': {
       return (
         <g>
-          <circle cx={200 - props.x} cy={props.y}  r={4} fill={BP_CORE_PIN_COLOR}/>
+          <circle cx={200 - props.x} cy={props.y} r={4} fill={WIRING_CORE_PIN_COLOR} />
           <text x={200 - props.x - 8} y={props.y + 5} fill='#777' textAnchor='end'>{props.name || ''}</text>
         </g>
       )
@@ -63,7 +53,7 @@ export function BPBasePin (props: BPBasePinProps) {
     default: {
       return (
         <g>
-          <circle cx={props.x} cy={props.y}  r={4} fill={BP_CORE_PIN_COLOR}/>
+          <circle cx={props.x} cy={props.y} r={4} fill={WIRING_CORE_PIN_COLOR} />
           <text x={props.x + 8} y={props.y + 5} fill='#777'>{props.name || ''}</text>
         </g>
       )
@@ -71,16 +61,31 @@ export function BPBasePin (props: BPBasePinProps) {
   }
 }
 
-function BPBaseModule (props: BPBaseModuleProps) {
+export interface DraggableDataWithWiringId extends DraggableData {
+  id: string
+}
+
+interface WiringBaseModuleProps {
+  id: string;
+  isDraggable?: boolean;
+  leftPins: WiringCore.Pin[];
+  rightPins: WiringCore.Pin[];
+  defaultPositon: WiringCorePosition;
+  title: string;
+  pins: WiringCore.State['pinsIndex'];
+  onDragModule(data: DraggableDataWithWiringId): void
+}
+
+function WiringBaseModule (props: WiringBaseModuleProps) {
   const currHeight = Math.max(props.leftPins.length, props.rightPins.length, 5) * 14 + 30
   const { pins } = props
 
   const renderLeftPins = () => props.leftPins.map((item, i) => (
-    <BPBasePin x={10} y={34 + i * 22} name={pins[item].name} key={item}/>
+    <WiringBasePin x={10} y={34 + i * 22} name={pins[item.id].text} key={item.id} />
   ))
 
   const renderRightPins = () => props.rightPins.map((item, i) => (
-    <BPBasePin x={10} y={34 + i * 22} name={pins[item].name} mode='right' key={item}/>
+    <WiringBasePin x={10} y={34 + i * 22} name={pins[item.id].text} mode='right' key={item.id} />
   ))
 
   const render = () => (
@@ -88,7 +93,7 @@ function BPBaseModule (props: BPBaseModuleProps) {
       <rect
         x={0} y={0}
         height={currHeight} width={200}
-        style={BP_BASE_MODULE_BG_STYPE}
+        style={WIRING_BASE_MODULE_BG_STYPE}
       />
       <text x={6} y={20}>{props.title}</text>
       {renderLeftPins()}
@@ -97,7 +102,7 @@ function BPBaseModule (props: BPBaseModuleProps) {
   )
 
   const handleDarg: DraggableEventHandler = (_, data) => {
-    props.onDragModule({...data, id: props.id})
+    props.onDragModule({ ...data, id: props.id })
   }
 
   if (props.isDraggable) {
@@ -113,4 +118,4 @@ function BPBaseModule (props: BPBaseModuleProps) {
   return render()
 }
 
-export default BPBaseModule
+export default WiringBaseModule
