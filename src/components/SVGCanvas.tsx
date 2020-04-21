@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useReducer, useMemo } from 'react'
+import React, { useEffect, useState, useReducer, useMemo, useRef } from 'react'
 import WiringBaseModule, { WiringCorePinLink, WiringCorePosition, DraggableDataWithWiringId } from './Module'
 import { MOCK_DATA } from './MockData'
 
@@ -60,9 +60,22 @@ export declare namespace WiringCore {
       type: ActionTypes.DRAG_MODULE;
       payload: DragModulePayload;
     }
+
+    export interface LinkModule {
+      type: ActionTypes.LINK_MODULE;
+      payload: {
+        start: Pin;
+        end: Pin;
+      }
+    }
   }
 
-  export type Action = Actions.DragModule
+  export type Action = Actions.DragModule | Actions.LinkModule
+
+  export interface TmpLink extends WiringCorePosition {
+    active: boolean;
+    start: Pin;
+  }
 }
 
 function initPin (
@@ -99,14 +112,23 @@ function initState (data: WiringCore.Data): WiringCore.State {
 
 enum ActionTypes {
   DRAG_MODULE,
+  LINK_MODULE
 }
 
 function reducer (state: WiringCore.State, action: WiringCore.Action): WiringCore.State {
   const nextState = { ...state }
   switch (action.type) {
     case ActionTypes.DRAG_MODULE: {
-      const { payload: { id, x, y } } = action as WiringCore.Actions.DragModule
+      const { payload: { id, x, y } } = action
       nextState.modulesIndex[id].position = { x, y }
+      nextState.links = [...state.links]
+      return nextState
+    }
+    case ActionTypes.LINK_MODULE: {
+      const { payload: { start, end } } = action
+      const nextLinks = [...nextState.links]
+      nextLinks.push({ start: start.id, end: end.id })
+      nextState.links = nextLinks
       return nextState
     }
     default:
@@ -122,6 +144,14 @@ interface SVGCanvasProps {
 function SVGCanvas (props: SVGCanvasProps) {
   const initalState = useMemo(() => initState(MOCK_DATA), [MOCK_DATA])
   const [state, dispatch] = useReducer(reducer, initalState)
+  const [tmpLink, setTmpLink] = useState({ active: false, x: 0, y: 0 } as WiringCore.TmpLink)
+  const tmpLinkRef = useRef(null as null | WiringCore.TmpLink)
+
+  const setTmpLinkWithRef = (value: WiringCore.TmpLink) => {
+    setTmpLink(value)
+    tmpLinkRef.current = value
+  }
+
   const { modules, links, pinsIndex } = state
 
   const [viewBox, setViewBox] = useState<string | undefined>()
@@ -131,8 +161,9 @@ function SVGCanvas (props: SVGCanvasProps) {
   }
 
   useEffect(() => {
-    const viewBox = [0, 0, 500, 500]
+    const viewBox = [0, 0, 800, 500]
     setViewBox(viewBox.join(','))
+    tmpLinkRef.current = tmpLink
   }, [])
 
   const handleDragModule = (data: DraggableDataWithWiringId) => {
@@ -145,7 +176,30 @@ function SVGCanvas (props: SVGCanvasProps) {
       }
     }
 
-    dispatch(action)
+    dispatch(action as WiringCore.Actions.DragModule)
+  }
+
+  const handleClickPin = (pin: WiringCore.Pin, event: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
+    const tmpLink = tmpLinkRef.current
+    if (!tmpLink) return
+    if (tmpLink.active) {
+      dispatch({
+        type: ActionTypes.LINK_MODULE,
+        payload: {
+          start: tmpLink.start,
+          end: pin
+        }
+      } as WiringCore.Actions.LinkModule)
+
+      setTmpLinkWithRef({ ...tmpLink, active: false })
+    } else {
+      const nextTmpLink = { start: pin, active: true, x: event.clientX, y: event.clientY } as WiringCore.TmpLink
+      setTmpLinkWithRef(nextTmpLink)
+    }
+  }
+
+  const handleMove = (event: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
+    if (tmpLink.active) setTmpLinkWithRef({ ...tmpLink, x: event.clientX, y: event.clientY })
   }
 
   const renderModules = () => {
@@ -159,6 +213,7 @@ function SVGCanvas (props: SVGCanvasProps) {
         defaultPositon={item.position}
         pins={pinsIndex}
         onDragModule={handleDragModule}
+        onClickPin={handleClickPin}
         isDraggable
       />
     ))
@@ -183,9 +238,27 @@ function SVGCanvas (props: SVGCanvasProps) {
           sy={sy}
           ex={ex}
           ey={ey}
+          className='link'
         />
       )
     })
+  }
+
+  const renderTmpLink = (): React.ReactElement | boolean => {
+    if (!tmpLink.active) return false
+    const startPin = pinsIndex[tmpLink.start.id]
+    const sx = startPin.parentRef.position.x + 200 - 8
+    const sy = startPin.parentRef.position.y + 34 + (startPin.index * 23)
+    return (
+      <WiringCorePinLink
+        key='tmp.link'
+        sx={sx}
+        sy={sy}
+        ex={tmpLink.x}
+        ey={tmpLink.y}
+        className='tmp-link'
+      />
+    )
   }
 
   return (
@@ -196,9 +269,11 @@ function SVGCanvas (props: SVGCanvasProps) {
       height={props.height}
       style={style}
       viewBox={viewBox}
+      onMouseMove={handleMove}
     >
-      {renderModules()}
-      {renderPinLink()}
+      {useMemo(() => renderModules(), [modules])}
+      {useMemo(() => renderPinLink(), [links])}
+      {renderTmpLink()}
     </svg>
   )
 }

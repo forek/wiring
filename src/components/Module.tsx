@@ -15,6 +15,7 @@ type WiringBasePinMode = 'left' | 'right'
 interface WiringBasePinProps extends WiringCorePosition {
   name?: string;
   mode?: WiringBasePinMode;
+  onClick(event: React.MouseEvent<SVGSVGElement, MouseEvent>): void;
 }
 
 interface WiringBasePinLinkProps {
@@ -22,12 +23,14 @@ interface WiringBasePinLinkProps {
   sy: number;
   ex: number;
   ey: number;
+  className?: string;
 }
 
 export function WiringCorePinLink (props: WiringBasePinLinkProps) {
-  const { sx, sy, ex, ey } = props
+  const { sx, sy, ex, ey, className } = props
   return (
     <path
+      className={className}
       d={`
         M ${sx} ${sy}
         C ${sx + 50} ${sy}, ${ex - 50} ${ey}, ${ex} ${ey}
@@ -43,7 +46,7 @@ export function WiringBasePin (props: WiringBasePinProps) {
   switch (currMode) {
     case 'right': {
       return (
-        <g>
+        <g onClick={props.onClick}>
           <circle cx={200 - props.x} cy={props.y} r={4} fill={WIRING_CORE_PIN_COLOR} />
           <text x={200 - props.x - 8} y={props.y + 5} fill='#777' textAnchor='end'>{props.name || ''}</text>
         </g>
@@ -52,7 +55,7 @@ export function WiringBasePin (props: WiringBasePinProps) {
     case 'left':
     default: {
       return (
-        <g>
+        <g onClick={props.onClick}>
           <circle cx={props.x} cy={props.y} r={4} fill={WIRING_CORE_PIN_COLOR} />
           <text x={props.x + 8} y={props.y + 5} fill='#777'>{props.name || ''}</text>
         </g>
@@ -73,7 +76,8 @@ interface WiringBaseModuleProps {
   defaultPositon: WiringCorePosition;
   title: string;
   pins: WiringCore.State['pinsIndex'];
-  onDragModule(data: DraggableDataWithWiringId): void
+  onDragModule(data: DraggableDataWithWiringId): void;
+  onClickPin(pin: WiringCore.Pin, event: React.MouseEvent<SVGSVGElement, MouseEvent>): void;
 }
 
 function WiringBaseModule (props: WiringBaseModuleProps) {
@@ -81,11 +85,11 @@ function WiringBaseModule (props: WiringBaseModuleProps) {
   const { pins } = props
 
   const renderLeftPins = () => props.leftPins.map((item, i) => (
-    <WiringBasePin x={10} y={34 + i * 22} name={pins[item.id].text} key={item.id} />
+    <WiringBasePin x={10} y={34 + i * 22} name={pins[item.id].text} key={item.id} onClick={(event) => props.onClickPin(item, event)} />
   ))
 
   const renderRightPins = () => props.rightPins.map((item, i) => (
-    <WiringBasePin x={10} y={34 + i * 22} name={pins[item.id].text} mode='right' key={item.id} />
+    <WiringBasePin x={10} y={34 + i * 22} name={pins[item.id].text} mode='right' key={item.id} onClick={(event) => props.onClickPin(item, event)} />
   ))
 
   const render = () => (

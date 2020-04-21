@@ -1,3 +1,7 @@
-#SVGCanvas path:hover {
+#SVGCanvas path.link:hover {
   stroke: #009966;
+}
+
+#SVGCanvas path.tmp-link {
+  pointer-events: none;
 }
