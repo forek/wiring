@@ -46,7 +46,7 @@ export function WiringBasePin (props: WiringBasePinProps) {
   switch (currMode) {
     case 'right': {
       return (
-        <g onClick={props.onClick}>
+        <g className='wiring__base--pin' onClick={props.onClick}>
           <circle cx={200 - props.x} cy={props.y} r={4} fill={WIRING_CORE_PIN_COLOR} />
           <text x={200 - props.x - 8} y={props.y + 5} fill='#777' textAnchor='end'>{props.name || ''}</text>
         </g>
@@ -55,7 +55,7 @@ export function WiringBasePin (props: WiringBasePinProps) {
     case 'left':
     default: {
       return (
-        <g onClick={props.onClick}>
+        <g className='wiring__base--pin' onClick={props.onClick}>
           <circle cx={props.x} cy={props.y} r={4} fill={WIRING_CORE_PIN_COLOR} />
           <text x={props.x + 8} y={props.y + 5} fill='#777'>{props.name || ''}</text>
         </g>
@@ -114,6 +114,7 @@ function WiringBaseModule (props: WiringBaseModuleProps) {
       <Draggable
         defaultPosition={props.defaultPositon}
         onDrag={handleDarg}
+        cancel='.wiring__base--pin'
       >
         {render()}
       </Draggable>
