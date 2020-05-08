@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useReducer, useMemo, useRef } from 'react'
-import WiringBaseModule, { WiringCorePinLink, WiringCorePosition, DraggableDataWithWiringId } from './Module'
+import { WiringBase, PinLink as WiringCorePinLink } from './BaseModule'
+import WiringModule from './NormalModule'
 import { MOCK_DATA } from './MockData'
 
 export declare namespace WiringCore {
@@ -16,7 +17,7 @@ export declare namespace WiringCore {
     id: ModuleId;
     title?: string;
     type: ModuleType;
-    position: WiringCorePosition;
+    position: WiringBase.Position;
     leftPins: Pin[];
     rightPins: Pin[];
   }
@@ -30,7 +31,7 @@ export declare namespace WiringCore {
     }>
   }
 
-  interface IndexPin extends Pin {
+  interface IndexPin extends Pin, WiringBase.PinInfo {
     parentRef: Module;
     index: number;
   }
@@ -52,7 +53,7 @@ export declare namespace WiringCore {
       payload?: {};
     }
 
-    interface DragModulePayload extends WiringCorePosition {
+    interface DragModulePayload extends WiringBase.Position {
       id: ModuleId;
     }
 
@@ -72,7 +73,7 @@ export declare namespace WiringCore {
 
   export type Action = Actions.DragModule | Actions.LinkModule
 
-  export interface TmpLink extends WiringCorePosition {
+  export interface TmpLink extends WiringBase.Position {
     active: boolean;
     start: Pin;
   }
@@ -84,11 +85,16 @@ function initPin (
   pinsIndex: WiringCore.State['pinsIndex']
 ): void {
   pins.forEach((p, i) => {
-    pinsIndex[p.id] = {
+    const info = WiringModule.getPinInfo(p, parentModule)
+
+    const obj = {
+      ...info,
       ...p,
       parentRef: parentModule,
       index: i
-    }
+    } as WiringCore.IndexPin
+
+    pinsIndex[p.id] = obj
   })
 }
 
@@ -120,7 +126,13 @@ function reducer (state: WiringCore.State, action: WiringCore.Action): WiringCor
   switch (action.type) {
     case ActionTypes.DRAG_MODULE: {
       const { payload: { id, x, y } } = action
-      nextState.modulesIndex[id].position = { x, y }
+      const module = nextState.modulesIndex[id]
+      module.position = { x, y }
+      const { leftPins, rightPins } = module
+
+      if (leftPins.length) initPin(leftPins, module, nextState.pinsIndex)
+      if (rightPins.length) initPin(rightPins, module, nextState.pinsIndex)
+
       nextState.links = [...state.links]
       return nextState
     }
@@ -166,7 +178,7 @@ function SVGCanvas (props: SVGCanvasProps) {
     tmpLinkRef.current = tmpLink
   }, [])
 
-  const handleDragModule = (data: DraggableDataWithWiringId) => {
+  const handleDragModule = (data: WiringBase.DraggableData) => {
     const action = {
       type: ActionTypes.DRAG_MODULE,
       payload: {
@@ -204,7 +216,7 @@ function SVGCanvas (props: SVGCanvasProps) {
 
   const renderModules = () => {
     return modules.map(item => (
-      <WiringBaseModule
+      <WiringModule
         id={item.id}
         key={item.id}
         title={item.title || ''}
@@ -223,21 +235,13 @@ function SVGCanvas (props: SVGCanvasProps) {
     return links.map(item => {
       const startPin = pinsIndex[item.start]
       const endPin = pinsIndex[item.end]
-      const startModule = startPin.parentRef
-      const endModule = endPin.parentRef
-
-      const sx = startModule.position.x + 200 - 8
-      const sy = startModule.position.y + 34 + (startPin.index * 23)
-      const ex = endModule.position.x + 8
-      const ey = endModule.position.y + 34 + (endPin.index * 23)
-
       return (
         <WiringCorePinLink
           key={`${item.start} -> ${item.end}`}
-          sx={sx}
-          sy={sy}
-          ex={ex}
-          ey={ey}
+          startPoint={startPin.position}
+          startVec={startPin.vec}
+          endPoint={endPin.position}
+          endVec={endPin.vec}
           className='link'
         />
       )
@@ -247,15 +251,14 @@ function SVGCanvas (props: SVGCanvasProps) {
   const renderTmpLink = (): React.ReactElement | boolean => {
     if (!tmpLink.active) return false
     const startPin = pinsIndex[tmpLink.start.id]
-    const sx = startPin.parentRef.position.x + 200 - 8
-    const sy = startPin.parentRef.position.y + 34 + (startPin.index * 23)
+
     return (
       <WiringCorePinLink
         key='tmp.link'
-        sx={sx}
-        sy={sy}
-        ex={tmpLink.x}
-        ey={tmpLink.y}
+        startPoint={startPin.position}
+        startVec={startPin.vec}
+        endPoint={tmpLink}
+        endVec={{ x: 0, y: 0 }}
         className='tmp-link'
       />
     )
@@ -273,7 +276,7 @@ function SVGCanvas (props: SVGCanvasProps) {
     >
       {useMemo(() => renderModules(), [modules])}
       {useMemo(() => renderPinLink(), [links])}
-      {renderTmpLink()}
+      {useMemo(() => renderTmpLink(), [tmpLink])}
     </svg>
   )
 }
