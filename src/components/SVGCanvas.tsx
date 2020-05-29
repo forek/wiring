@@ -57,21 +57,26 @@ export declare namespace WiringCore {
       id: ModuleId;
     }
 
-    export interface DragModule extends Base {
-      type: ActionTypes.DRAG_MODULE;
-      payload: DragModulePayload;
-    }
-
-    export interface LinkModule {
-      type: ActionTypes.LINK_MODULE;
-      payload: {
-        start: Pin;
-        end: Pin;
+    export interface Current {
+      DragModule: {
+        type: ActionTypes.DRAG_MODULE;
+        payload: DragModulePayload;
+      }
+      LinkModule: {
+        type: ActionTypes.LINK_MODULE;
+        payload: {
+          start: Pin;
+          end: Pin;
+        }
+      }
+      AddModule: {
+        type: ActionTypes.ADD_MODULE
+        payload: Partial<Module>
       }
     }
   }
 
-  export type Action = Actions.DragModule | Actions.LinkModule
+  export type Action = Actions.Current[keyof Actions.Current]
 
   export interface TmpLink extends WiringBase.Position {
     active: boolean;
@@ -118,7 +123,8 @@ function initState (data: WiringCore.Data): WiringCore.State {
 
 enum ActionTypes {
   DRAG_MODULE,
-  LINK_MODULE
+  LINK_MODULE,
+  ADD_MODULE
 }
 
 function reducer (state: WiringCore.State, action: WiringCore.Action): WiringCore.State {
@@ -141,6 +147,43 @@ function reducer (state: WiringCore.State, action: WiringCore.Action): WiringCor
       const nextLinks = [...nextState.links]
       nextLinks.push({ start: start.id, end: end.id })
       nextState.links = nextLinks
+      return nextState
+    }
+    case ActionTypes.ADD_MODULE: {
+      const { payload } = action
+      nextState.pinsIndex = { ...nextState.pinsIndex }
+      const distributePinsId: (m: WiringCore.Module, p?: WiringCore.Pin[]) => WiringCore.Pin[] = (module, pins) => {
+        return pins?.map(item => {
+          const currentId = item.id || Math.random().toString()
+          return { id: currentId, text: item.text }
+        }) || []
+      }
+
+      const newModule: WiringCore.Module = {
+        id: Math.random().toString(),
+        type: 'BaseModule',
+        position: { x: 0, y: 0 },
+        leftPins: [],
+        rightPins: [],
+        title: payload.title
+      }
+
+      Object.assign(newModule, {
+        leftPins: distributePinsId(newModule, payload.leftPins),
+        rightPins: distributePinsId(newModule, payload.rightPins)
+      })
+
+      initPin(newModule.leftPins, newModule, nextState.pinsIndex)
+      initPin(newModule.rightPins, newModule, nextState.pinsIndex)
+
+      const nextModules = [...state.modules]
+      const nextModulesIndex = { ...state.modulesIndex }
+
+      nextModules.push(newModule)
+      nextModulesIndex[newModule.id] = newModule
+      nextState.modules = nextModules
+      nextState.modulesIndex = nextModulesIndex
+
       return nextState
     }
     default:
@@ -176,10 +219,11 @@ function SVGCanvas (props: SVGCanvasProps) {
     const viewBox = [0, 0, 800, 500]
     setViewBox(viewBox.join(','))
     tmpLinkRef.current = tmpLink
+    Object.assign(window, { svgDispatch: dispatch })
   }, [])
 
   const handleDragModule = (data: WiringBase.DraggableData) => {
-    const action = {
+    const action: WiringCore.Actions.Current['DragModule'] = {
       type: ActionTypes.DRAG_MODULE,
       payload: {
         id: data.id,
@@ -188,20 +232,22 @@ function SVGCanvas (props: SVGCanvasProps) {
       }
     }
 
-    dispatch(action as WiringCore.Actions.DragModule)
+    dispatch(action)
   }
 
   const handleClickPin = (pin: WiringCore.Pin, event: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
     const tmpLink = tmpLinkRef.current
     if (!tmpLink) return
     if (tmpLink.active) {
-      dispatch({
+      const action: WiringCore.Actions.Current['LinkModule'] = {
         type: ActionTypes.LINK_MODULE,
         payload: {
           start: tmpLink.start,
           end: pin
         }
-      } as WiringCore.Actions.LinkModule)
+      }
+
+      dispatch(action)
 
       setTmpLinkWithRef({ ...tmpLink, active: false })
     } else {
